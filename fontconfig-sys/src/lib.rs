@@ -307,7 +307,22 @@ pub type FcCache = struct__FcCache;
 
 pub type union_unnamed1 = c_void;
 
-dlib::external_library!(Fc, "fontconfig",
+// The root bindings are emitted whether or not `dlopen` is on. Cargo unifies features across a
+// dependency graph, so a crate can switch `dlopen` on (fontique does, through
+// `fontconfig-dlopen`) while another crate in the same graph imports the functions straight from
+// this crate's root (servo-fonts does). Under the stock macro, turning the feature on deleted
+// those imports. Here `dlopen` adds the runtime handle instead of replacing the bindings: a graph
+// that has a root-binding consumer links fontconfig either way, so the link dependency is not new.
+macro_rules! fontconfig_library {
+    ($($bindings:tt)*) => {
+        dlib::link_external_library!("fontconfig", $($bindings)*);
+
+        #[cfg(feature = "dlopen")]
+        dlib::dlopen_external_library!(Fc, $($bindings)*);
+    };
+}
+
+fontconfig_library!(
     functions:
         fn FcBlanksCreate() -> *mut FcBlanks,
 
